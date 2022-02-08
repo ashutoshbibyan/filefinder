@@ -8,8 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.ResourceBundle;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 import org.apache.derby.tools.sysinfo;
+import org.hibernate.internal.build.AllowSysOut;
 
 import com.file.model.FileInfo;
 
@@ -31,8 +35,7 @@ public class ShowDuplicateController {
 	@FXML
 	TableView<FileInfo> tblDuplicateFiles;
 	
-	@FXML
-	TableColumn<FileInfo, String> tblcolStatus;
+	
 	@FXML
 	TableColumn<FileInfo,String> tblcolFileName;
 	@FXML
@@ -44,14 +47,10 @@ public class ShowDuplicateController {
 	ImageView imgvPreview;
 	
 	
-	private List<FileInfo> filesToBeDeleted ;
 	
 	
 	
 	
-	public List<FileInfo> getFilesToBeDeleted() {
-		return filesToBeDeleted;
-	}
 
 
 
@@ -75,16 +74,41 @@ public class ShowDuplicateController {
 		}
 	}
 
-	public void setFilesToBeDeleted(List<FileInfo> filesToBeDeleted) {
-		this.filesToBeDeleted = filesToBeDeleted;
-	}
+	
 
 
    @FXML
    public void deleteSelected(ActionEvent event) {
 	   
+	   ExecutorService exService = Executors.newSingleThreadExecutor();
+	   
+	   
 	   System.out.println("delete files ...");
 	   
+	   exService.submit(new Runnable() {
+		
+		@Override
+		public void run() {
+			
+			tblDuplicateFiles.getItems().iterator().forEachRemaining((f)->{
+				try {			  
+					System.out.println("delete");
+					boolean isDeleted = Files.deleteIfExists(Paths.get(f.getPath()));
+					System.out.println("file deleted " + isDeleted + f.getPath());
+					if(isDeleted) {
+						tblDuplicateFiles.getItems().remove(f);
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					
+					e.printStackTrace();
+				}
+			});
+			
+		}
+	});
+	   
+	   exService.shutdown();
    }
    
    @FXML

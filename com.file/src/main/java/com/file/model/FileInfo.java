@@ -21,7 +21,7 @@ public class FileInfo {
 	
 	private String fileName;
 	
-	@Column(name = "file_path" ,unique = true , columnDefinition = "LONG VARCHAR")	
+	@Column(name = "file_path" ,unique = true , columnDefinition = "VARCHAR(2000)")	
 	private String path;
 	
 	private double size;

@@ -11,7 +11,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -23,14 +26,18 @@ import org.hibernate.Query;
 import org.hibernate.SQLQuery;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.exception.ConstraintViolationException;
 
-import com.file.DbConnection;
 import com.file.Main;
 import com.file.model.FileInfo;
 
+import javafx.beans.InvalidationListener;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
@@ -39,6 +46,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -81,13 +89,20 @@ public class AppController {
 	Label lblSize;
 	
 	@FXML
-	Label lblPath;
+	Button btnShowDuplicate;
+	
+	@FXML
+	Button btnDeleteSelected;
+	
 	
 	@FXML
 	ProgressIndicator progress;
 	
 	@FXML
 	Label lblLeftStatus;
+	
+	@FXML
+	Label lblRightStatus;
 	
 	private long totalNoOfFiles = 0 ;
 	private long noOfFileVisited = 0;
@@ -108,7 +123,7 @@ public class AppController {
 		
 		try {
 			lblFIleName.setText(fInfo.getFileName());
-			lblPath.setText(fInfo.getPath());
+			
 			
 			// bytes to mb conversion 
 			double size = fInfo.getSize()/1e+6;
@@ -134,142 +149,159 @@ public class AppController {
 		
 		File f = dirChooser.showDialog(new Stage());
 		
-		
-				
-		lvFolderList.getItems().add(f.getPath());
-		
-		
-		ExecutorService exService = Executors.newFixedThreadPool(2);
-		
-	    Future<Long> noOfFiles =	exService.submit(new Callable<Long>() {
+		if(f != null) {
+			
+			lvFolderList.getItems().add(f.getPath());
+			
+			
+			ExecutorService exService = Executors.newCachedThreadPool();
+			
+		    Future<Long> noOfFiles =	exService.submit(new Callable<Long>() {
 
-			@Override
-			public Long call() throws Exception {
-				return Files.walk(Paths.get(f.getPath())).count();
-			}
-		});
-	    
-		   try {
-			System.out.println("no of files " + noOfFiles.get());
-			totalNoOfFiles=noOfFiles.get();
-			
-		} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}    
-		   
-		   catch (ExecutionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		   
-		   
-		   
-		   System.out.println("search folders");
-			
-		   
-			
-			
-			
-			exService.submit(new Runnable() {
-				
 				@Override
-				public void run() {
-					
+				public Long call() throws Exception {
 				
-					Session session = Main.sessionFactory.openSession();
+					return Files.walk(Paths.get(f.getPath())).count();
+				}
+			});
+		    
+			   try {
+				System.out.println("no of files " + noOfFiles.get());
+				totalNoOfFiles=noOfFiles.get();
+				
+			} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}    
+			   
+			   catch (ExecutionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			   
+			   
+			   
+			   System.out.println("search folders");
+				
+			   
+				
+				
+				
+				exService.submit(new Runnable() {
+					
+					@Override
+					public void run() {
 						
-						try {
-							Files.walkFileTree(Paths.get(f.getPath()),new FileVisitor<Path>() {
-
-								@Override
-								public FileVisitResult postVisitDirectory(Path arg0, IOException arg1) throws IOException {
-									 
-									++noOfFileVisited;
-									double progressPercent = (float)noOfFileVisited/totalNoOfFiles;
-									progress.setProgress(progressPercent);
-
-
-									return FileVisitResult.CONTINUE;
-								}
-
-								@Override
-								public FileVisitResult preVisitDirectory(Path arg0, BasicFileAttributes arg1)
-										throws IOException {
-									// TODO Auto-generated method stub
-									return FileVisitResult.CONTINUE;
-								}
-
-								@Override
-								public FileVisitResult visitFile(Path arg0, BasicFileAttributes arg1) throws IOException {
-									// TODO Auto-generated method stub
-									if(!arg1.isDirectory()) {
-										
-										File f = arg0.toFile();
-										
-										FileInfo fInfo = new FileInfo();
-										fInfo.setFileName(f.getName());
-										fInfo.setPath(f.getPath());
-										fInfo.setSize(arg1.size());
-										
-										
-										
-										
-										
-										
-										Transaction transaction = session.beginTransaction();
-										
-										System.out.println(fInfo);
-										session.save(fInfo);
-										
-										transaction.commit();
-										
-										
+						
+					
+						
 							
-										lvFolderList.getItems().add(fInfo.getPath());
-										
-										
-										
+							try {
+								Files.walkFileTree(Paths.get(f.getPath()),new FileVisitor<Path>() {
+
+									@Override
+									public FileVisitResult postVisitDirectory(Path arg0, IOException arg1) throws IOException {
+										 
 										++noOfFileVisited;
-										
-										//System.out.println("file visited"+noOfFileVisited);
-										
 										double progressPercent = (float)noOfFileVisited/totalNoOfFiles;
-										
-										//System.out.println("progress " + progressPercent);
-											
 										progress.setProgress(progressPercent);
 
-										//System.out.println("total files "+totalNoOfFiles);
-										
-										
-									}
-									
-									
-									return FileVisitResult.CONTINUE;
-								}
 
-								@Override
-								public FileVisitResult visitFileFailed(Path arg0, IOException arg1) throws IOException {
-									// TODO Auto-generated method stub
-									
-									return FileVisitResult.CONTINUE;
-								}
-							});
+										return FileVisitResult.CONTINUE;
+									}
+
+									@Override
+									public FileVisitResult preVisitDirectory(Path arg0, BasicFileAttributes arg1)
+											throws IOException {
+										// TODO Auto-generated method stub
+										return FileVisitResult.CONTINUE;
+									}
+
+									@Override
+									public FileVisitResult visitFile(Path arg0, BasicFileAttributes arg1) throws IOException {
+										// TODO Auto-generated method stub
+										
+										Session session = Main.sessionFactory.openSession();
+										if(!arg1.isDirectory()) {
+											
+											File f = arg0.toFile();
+											
+											FileInfo fInfo = new FileInfo();
+											fInfo.setFileName(f.getName());
+											fInfo.setPath(f.getPath());
+											fInfo.setSize(arg1.size());
+											
+											
+											
+											
+											
+											
+											Transaction transaction = session.beginTransaction();
+											
+											System.out.println(fInfo);
+											try {
+												session.save(fInfo);
+												
+												transaction.commit();
+												
+												lvFolderList.getItems().add(fInfo.getPath());
+												
+											
+												
+											} catch ( ConstraintViolationException e) {
+											       System.out.println("file is already added to db:");
+											       
+											}
+											
+											++noOfFileVisited;
+											
+											//System.out.println("file visited"+noOfFileVisited);
+											
+											double progressPercent = (float)noOfFileVisited/totalNoOfFiles;
+											
+											//System.out.println("progress " + progressPercent);
+												
+											progress.setProgress(progressPercent);
+
+											//System.out.println("total files "+totalNoOfFiles);
+								
+											
+											
+										}
+										session.close();
+										
+										return FileVisitResult.CONTINUE;
+									}
+
+									@Override
+									public FileVisitResult visitFileFailed(Path arg0, IOException arg1) throws IOException {
+										// TODO Auto-generated method stub
+										
+										return FileVisitResult.CONTINUE;
+									}
+								});
+								
+								
+							} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
 							
-							session.close();
-						} catch (IOException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-					exService.shutdown();	
+						exService.shutdown();	
+						showDuplicate();
+					}
 					
-				}
+					
+				});
 				
+				noOfFileVisited=0;
 				
-			});
 			
-			noOfFileVisited=0;
+		}
+		
+		
+				
+	
 		
 	}
 	
@@ -282,8 +314,7 @@ public class AppController {
 		
 	}
 	
-	@FXML
-	public void showDuplicate(ActionEvent event) {
+	public void showDuplicate() {
 		
 		ExecutorService executorService  = Executors.newSingleThreadExecutor();
 		
@@ -292,6 +323,7 @@ public class AppController {
 			@Override
 			public void run() {
 				System.out.println("show Duplicate is called ");
+				
 				
 				Session session = Main.sessionFactory.openSession();
 				Transaction transaction = session.beginTransaction();
@@ -339,7 +371,12 @@ public class AppController {
 									filesToBeDeleted.remove(param.getValue());
 								}
 								System.out.println(param.getValue().getPath());
-								
+								if(filesToBeDeleted.size()>0) {
+									btnDeleteSelected.setDisable(false);
+								}
+								else {
+									btnDeleteSelected.setDisable(true);
+								}
 							}
 						});
 						
@@ -352,10 +389,19 @@ public class AppController {
 				 tbcolPath.setCellValueFactory(new PropertyValueFactory<FileInfo, String>("path"));
 				 tbcolSize.setCellValueFactory(new PropertyValueFactory<FileInfo, String>("size"));
 				
-				listOfFiles.forEach((fInfo)->{
-					 
-					tvDuplicateTable.getItems().add(fInfo);
-				});
+				if(listOfFiles.size()>0) {
+					//ObservableList<FileInfo> list = FXCollections.observableList(listOfFiles);
+					//tvDuplicateTable.setItems(list);
+					listOfFiles.forEach((fInfo)->{
+						if(!tvDuplicateTable.getItems().contains(fInfo)) {
+							tvDuplicateTable.getItems().add(fInfo);
+						}
+						
+					});
+					
+				}
+				
+				
 			}
 		});
 		

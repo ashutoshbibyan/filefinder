@@ -63,7 +63,6 @@
                            </font></Label>
                         <TableView fx:id="tblDuplicateFiles" layoutX="6.0" layoutY="50.0" onMouseClicked="#fileSeleted" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="50.0">
                           <columns>
-                              <TableColumn fx:id="tblcolStatus" prefWidth="75.0" text="Status" />
                             <TableColumn fx:id="tblcolFileName" minWidth="200.0" prefWidth="75.0" text="FileName" />
                               <TableColumn fx:id="tblcolSize" minWidth="200.0" prefWidth="75.0" text="Size" />
                               <TableColumn fx:id="tblcolPath" minWidth="700.0" prefWidth="75.0" text="Path" />
